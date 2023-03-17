@@ -17,6 +17,17 @@ func getSum(n1 int, n2 int) int {
 
 }
 
+// Sum  可变参数的使用/
+func Sum(n1 int, args ...int) int {
+	sum := n1
+	for i := 0; i < len(args); i++ {
+
+		sum += args[i]
+
+	}
+	return sum
+}
+
 // 函数既然是一种数据类型，因此在Go中，函数可以作为形参，并且调用
 func myFun(funvar func(int, int) int, num1 int, num2 int) int {
 	return funvar(num1, num2)
@@ -51,5 +62,8 @@ func main() {
 	sum, sub := Cal1(10, 20)
 
 	fmt.Println(sum, sub)
+
+	res4 := Sum(10, 1, 2, 3, 5, -10)
+	fmt.Println(res4)
 
 }
