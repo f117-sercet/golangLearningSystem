@@ -1,6 +1,9 @@
 package utils
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 /**
 函数内部声明/定义的变量叫局部变量，作用域仅限于函数内部
@@ -25,6 +28,8 @@ func Sum(n1 int, n2 int) int {
 	res := n1 + n2
 
 	fmt.Println("ok3 res=", res)
-
+	// 返回子串在字符串最后一次出现的index，如没有，返回-1
+	index := strings.LastIndex("GO,GOLANG", "GO")
+	fmt.Printf("index=%v\n", index)
 	return res
 }
