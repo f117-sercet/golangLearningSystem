@@ -65,4 +65,10 @@ func main() {
 	fmt.Println("hes的地址=p\n", &hes[0])
 	fmt.Println("hes[0]的地址=v\n", &hes[0])
 
+	// 另外的遍历方法
+	heros := [...]string{"宋", "吴", "璐"}
+	for i, v := range heros {
+		fmt.Println("i=%v v=%v\n", i, v)
+	}
+
 }
