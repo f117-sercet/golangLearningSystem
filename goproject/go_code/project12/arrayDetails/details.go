@@ -1,5 +1,11 @@
 package main
 
+import (
+	"fmt"
+	"math/rand"
+	"time"
+)
+
 func main() {
 
 	// 长度固定，不能动态变化
@@ -22,4 +28,11 @@ func main() {
 	6.若想在其他函数中，去修改原来的数组，可以使用引用传递（指针方式）
 	数组
 	*/
+	var intArr5 [5]int
+
+	rand.Seed(time.Now().Unix())
+	for i := 0; i < len(intArr5); i++ {
+		intArr5[i] = rand.Intn(100)
+	}
+	fmt.Println(intArr5)
 }
