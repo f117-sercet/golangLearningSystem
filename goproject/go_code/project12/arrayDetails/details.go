@@ -30,7 +30,7 @@ func main() {
 	*/
 	var intArr5 [5]int
 
-	rand.Seed(time.Now().Unix())
+	rand.Seed(time.Now().UnixNano())
 	for i := 0; i < len(intArr5); i++ {
 		intArr5[i] = rand.Intn(100)
 	}
