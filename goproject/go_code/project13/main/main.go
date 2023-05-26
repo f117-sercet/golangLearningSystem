@@ -17,4 +17,6 @@ func main() {
 	fmt.Println("slice的元素个数 = ", slice)
 	fmt.Println("slice的元素个数 = ", len(slice))
 	fmt.Println("slice 的容量=", cap(slice))
+
+	// 切片内存分析
 }
