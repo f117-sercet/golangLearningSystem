@@ -18,4 +18,18 @@ func main() {
 	fmt.Println(slice2)
 	fmt.Println(cap(slice2))
 	fmt.Println(len(slice2))
+
+	// 遍历
+	// for循环遍历
+	for i := 0; i < len(slice); i++ {
+
+		fmt.Printf("slice[%v]=%v\n", i, slice[i])
+	}
+
+	//for-range 遍历切片
+	for i, v := range slice2 {
+
+		fmt.Printf("i=%v v=%v \n", i, v)
+	}
+
 }
