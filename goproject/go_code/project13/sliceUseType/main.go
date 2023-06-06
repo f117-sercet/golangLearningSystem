@@ -23,6 +23,8 @@ func main() {
 	// for循环遍历
 	for i := 0; i < len(slice); i++ {
 
+		// 因为arr,slice 和slice2 指向的是同一个数据空间，因此一个改变，其他也会改变
+
 		fmt.Printf("slice[%v]=%v\n", i, slice[i])
 	}
 
@@ -43,5 +45,12 @@ func main() {
 	  5. 切片可以继续使用切片
 
 	*/
+
+	var slice3 []int = []int{1, 2, 3, 4, 5, 6}
+	slice3 = append(slice3, 600)
+	//通过append将切片slice3追加给slice3
+	slice3 = append(slice3, slice3...)
+
+	fmt.Println("slice3", slice3)
 
 }
