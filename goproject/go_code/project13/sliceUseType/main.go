@@ -52,5 +52,13 @@ func main() {
 	slice3 = append(slice3, slice3...)
 
 	fmt.Println("slice3", slice3)
+	fmt.Println("slice的地址", slice3)
+
+	// copy的使用
+	var slice4 []int = []int{1, 2, 3, 4, 5}
+	var slice5 = make([]int, 10)
+	copy(slice5, slice4)
+	fmt.Println("slice=", slice4)
+	fmt.Println("slice=", slice5)
 
 }
