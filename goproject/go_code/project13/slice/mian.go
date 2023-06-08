@@ -14,7 +14,10 @@ func main() {
 	fmt.Println("slice", slice)
 	fmt.Println("arr", arr)
 
-	// []byte 以字节来处理，而一个汉字，是三个字节，因此会出现乱码
+	/**
+	[]byte 以字节来处理，而一个汉字，是三个字节，因此会出现乱码
+	解决方法：将string 转成[]rune 即可，因为[] rune 是按照字符处理，兼容汉字
+	*/
 	str := "hello@atguigu"
 	slice3 := str[6:]
 	fmt.Println("slice3", slice3)
