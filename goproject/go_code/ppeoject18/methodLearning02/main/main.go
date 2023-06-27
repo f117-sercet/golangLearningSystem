@@ -32,4 +32,10 @@ func main() {
 	area2 := (&c).area2()
 	fmt.Printf("area=%v\n", area2)
 
+	var c2 = &Circle{
+		1,
+	}
+	// 在创建结构体指针变量时，把字段名和字段值写在一起，这种写法，不依赖于字段的定义顺序
+	fmt.Print(c2)
+
 }
