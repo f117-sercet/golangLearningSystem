@@ -41,4 +41,6 @@ func main() {
 	fmt.Print(goods)
 	fmt.Println(books)
 
+	// 麻了
+
 }
