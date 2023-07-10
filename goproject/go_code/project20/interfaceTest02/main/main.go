@@ -30,4 +30,5 @@ func main() {
 	var b AInterface = i
 	//只要是自定义数据类型，就可以实现接口，不仅仅是结构体类型。
 	b.Say()
+
 }
