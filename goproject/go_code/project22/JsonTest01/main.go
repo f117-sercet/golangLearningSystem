@@ -6,8 +6,8 @@ import (
 )
 
 type Student struct {
-	Name string
-	Age  int
+	Name string `json:"name"`
+	Age  int    `json:"age"`
 }
 
 func testMap() {
@@ -34,9 +34,13 @@ func testSlice() {
 	m2["token"] = "55"
 	slice = append(slice, m2)
 
+	//序列化
 	marshal, _ := json.Marshal(slice)
 	fmt.Println("切片序列化", string(marshal))
 
+	// 反序列化
+	err := json.Unmarshal([]byte(marshal), &slice)
+	fmt.Println(err, slice)
 }
 
 func main() {
@@ -50,10 +54,10 @@ func main() {
 	var student Student
 	student.Name = "123"
 	student.Age = 18
-	data, _ := json.Marshal(student)
-	fmt.Println(string(data))
+	//data, _ := json.Marshal(student)
+	//fmt.Println(string(data))
 
-	testMap()
+	//testMap()
 	testSlice()
 
 }
