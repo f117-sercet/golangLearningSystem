@@ -65,11 +65,12 @@ func main() {
 	for {
 		res, ok := <-primeChan
 
-		if ok {
+		if !ok {
 			fmt.Println("素数", res)
+			break
 		}
+		fmt.Println("素数", res)
 	}
-
 	fmt.Println("main线程退出")
 
 }
