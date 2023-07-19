@@ -41,6 +41,13 @@ func primeNum(intChan chan int, primeChan chan int, exitChan chan bool) {
 
 func main() {
 
+	var chan2 <-chan int
+
+	fmt.Println("只读", chan2)
+
+	var chan3 chan<- int
+	fmt.Println("只写", chan3)
+
 	intChan := make(chan int, 1000)
 	primeChan := make(chan int, 1000)
 	exitChan := make(chan bool, 4)
