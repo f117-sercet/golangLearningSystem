@@ -45,7 +45,7 @@ func (group *RouterGroup) Use(middlewares ...HandlerFunc) {
 func (group *RouterGroup) addRoute(method string, comp string, handler HandlerFunc) {
 	pattern := group.prefix + comp
 	log.Printf("Route %4s - %s", method, pattern)
-	group.engine.router.addRoute(method, pattern, handler)
+	group.engine.router.addRouter(method, pattern, handler)
 }
 
 func (group *RouterGroup) GET(pattern string, handler HandlerFunc) {
@@ -70,5 +70,5 @@ func (engine *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	var c = new(Context)
 	c.handlers = middlewares
-	engine.router.handle(c)
+	//engine.router.handlers(c)
 }
