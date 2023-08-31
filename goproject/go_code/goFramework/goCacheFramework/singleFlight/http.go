@@ -126,3 +126,5 @@ func (h *httpGetter) Get(group string, key string) ([]byte, error) {
 }
 
 var _ PeerGetter = (*httpGetter)(nil)
+
+// 缓存击穿
