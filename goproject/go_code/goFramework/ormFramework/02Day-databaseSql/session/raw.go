@@ -55,11 +55,12 @@ func (s *Session) QueryRows() (rows *sql.Rows, err error) {
 	return
 }
 
-// 多参数查询
+// 多参数查询 //
 func (s *Session) Raw(sql string, values ...interface{}) *Session {
 
 	s.sql.WriteString(sql)
 	s.sql.WriteString("")
 	s.sqlVars = append(s.sqlVars, values...)
 	return s
+
 }
