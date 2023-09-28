@@ -1,4 +1,4 @@
-package day05_chain_operation
+package clause
 
 import (
 	"fmt"
@@ -99,3 +99,5 @@ func _delete(values ...interface{}) (string, []interface{}) {
 func _count(values ...interface{}) (string, []interface{}) {
 	return _select(values[0], []string{"count(*)"})
 }
+
+//
