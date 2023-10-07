@@ -3,7 +3,8 @@ package session
 import (
 	"database/sql"
 	"golangLearningSystem/goproject/go_code/goFramework/ormFramework/day04-save-query/clause"
-	"golangLearningSystem/goproject/go_code/goFramework/ormFramework/day04-save-query/schema"
+	"golangLearningSystem/goproject/go_code/goFramework/ormFramework/day05 chain—operation/schema"
+
 	"golangLearningSystem/goproject/go_code/goFramework/ormFramework/day05 chain—operation/dialect"
 	"golangLearningSystem/goproject/go_code/goFramework/ormFramework/day05 chain—operation/log"
 	"strings"

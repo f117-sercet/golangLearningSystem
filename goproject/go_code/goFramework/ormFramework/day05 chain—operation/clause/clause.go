@@ -1,7 +1,6 @@
 package clause
 
 import (
-	"golangLearningSystem/goproject/go_code/goFramework/ormFramework/day05 chain—operation"
 	"strings"
 )
 
@@ -33,7 +32,7 @@ func (c *Clause) Set(name Type, vars ...interface{}) {
 		c.sql = make(map[Type]string)
 		c.sqlVars = make(map[Type][]interface{})
 	}
-	sql, vars := day05_chain_operation.generators[name](vars...)
+	sql, vars := generators[name](vars...)
 	c.sql[name] = sql
 	c.sqlVars[name] = vars
 }
