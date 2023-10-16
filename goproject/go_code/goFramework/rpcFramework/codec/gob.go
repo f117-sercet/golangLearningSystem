@@ -1,4 +1,4 @@
-package day01_codec
+package codec
 
 import (
 	"bufio"
