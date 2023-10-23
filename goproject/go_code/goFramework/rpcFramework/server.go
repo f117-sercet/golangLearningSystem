@@ -9,19 +9,23 @@ import (
 	"net"
 	"reflect"
 	"sync"
+	"time"
 )
 
 const MagicNumber = 0x3bef5c
 
 type Option struct {
-	MagicNumber int
-	CodecType   codec.Type
+	MagicNumber    int
+	CodecType      codec.Type
+	ConnectTimeOut time.Duration
+	HandleTimeOut  time.Duration
 }
 
 var DefaultOption = &Option{
 
-	MagicNumber: MagicNumber,
-	CodecType:   codec.GobType,
+	MagicNumber:    MagicNumber,
+	CodecType:      codec.GobType,
+	ConnectTimeOut: time.Second * 10,
 }
 
 type Server struct{}
@@ -80,8 +84,10 @@ func (server *Server) serveCodec(cc codec.Codec) {
 func Accept(lis net.Listener) { DefaultServer.Accept(lis) }
 
 type request struct {
-	h            *codec.Header
-	argv, replyv reflect.Value
+	h            *codec.Header // header of request
+	argv, replyv reflect.Value // argv and replyv of request
+	mtype        *methodType
+	svc          *service
 }
 
 var DefaultServer = NewServer()
@@ -139,4 +145,24 @@ func (server *Server) Accept(lis net.Listener) {
 		}
 		go server.ServerConn(conn)
 	}
+}
+
+func (server *Server) handleRequests(cc codec.Codec, req *request, sending *sync.Mutex, wg *sync.WaitGroup, timeout time.Duration) {
+
+	defer wg.Done()
+	called := make(chan struct{})
+	sent := make(chan struct{})
+
+	go func() {
+		err := req.svc.call(req.mtype, req.argv, req.replyv)
+		called <- struct{}{}
+		if err != nil {
+			req.h.Error = err.Error()
+			server.sendResponse(cc, req.h, invalidRequest, sending)
+			sent <- struct{}{}
+			return
+		}
+		server.sendResponse(cc, req.h, req.replyv.Interface(), sending)
+		sent <- struct{}{}
+	}()
 }
