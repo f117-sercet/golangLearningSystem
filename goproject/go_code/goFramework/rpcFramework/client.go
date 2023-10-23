@@ -1,6 +1,7 @@
 package rpcFramework
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
@@ -9,21 +10,32 @@ import (
 	"io"
 	"log"
 	"net"
+	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
 
 // 客户端代码
 
+// Call represents an active RPC.
 type Call struct {
 	Seq           uint64
-	ServiceMethod string
-	Args          interface{}
-	Reply         interface{}
-	Error         error
-	Done          chan *Call
+	ServiceMethod string      // format "<service>.<method>"
+	Args          interface{} // arguments to the function
+	Reply         interface{} // reply from the function
+	Error         error       // if error occurs, it will be set
+	Done          chan *Call  // Strobes when call is complete.
 }
 
+func (call *Call) done() {
+	call.Done <- call
+}
+
+// Client represents an RPC Client.
+// There may be multiple outstanding Calls associated
+// with a single Client, and a Client may be used by
+// multiple goroutines simultaneously.
 type Client struct {
 	cc       codec.Codec
 	opt      *Option
@@ -36,60 +48,14 @@ type Client struct {
 	shutdown bool // server has told us to stop
 }
 
-type clientResult struct {
-	client *Client
-	err    error
-}
-
-type newClientFunc func(conn net.Conn, opt *Option) (client *Client, err error)
-
-func dialTimeout(f newClientFunc, network, address string, opts ...*Option) (client *Client, err error) {
-
-	opt, err := parseOptions(opts...)
-
-	if err != nil {
-		return nil, err
-	}
-	conn, err := net.DialTimeout(network, address, opt.ConnectTimeOut)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if err != nil {
-			_ = conn.Close()
-		}
-	}()
-	ch := make(chan clientResult)
-	go func() {
-		_, _ = f(conn, opt)
-	}()
-
-	if opt.ConnectTimeOut == 0 {
-		result := <-ch
-		return result.client, result.err
-	}
-
-	select {
-	case <-time.After(opt.ConnectTimeOut):
-		return nil, fmt.Errorf("rpc client: connect timeout: expect within %s", opt.ConnectTimeOut)
-	case result := <-ch:
-		return result.client, result.err
-	}
-
-}
-func (call *Call) done() {
-	call.Done <- call
-}
-
 var _ io.Closer = (*Client)(nil)
 
 var ErrShutdown = errors.New("connection is shut down")
 
+// Close the connection
 func (client *Client) Close() error {
-
 	client.mu.Lock()
 	defer client.mu.Unlock()
-
 	if client.closing {
 		return ErrShutdown
 	}
@@ -97,8 +63,8 @@ func (client *Client) Close() error {
 	return client.cc.Close()
 }
 
+// IsAvailable return true if the client does work
 func (client *Client) IsAvailable() bool {
-
 	client.mu.Lock()
 	defer client.mu.Unlock()
 	return !client.shutdown && !client.closing
@@ -115,6 +81,7 @@ func (client *Client) registerCall(call *Call) (uint64, error) {
 	client.seq++
 	return call.Seq, nil
 }
+
 func (client *Client) removeCall(seq uint64) *Call {
 	client.mu.Lock()
 	defer client.mu.Unlock()
@@ -124,14 +91,12 @@ func (client *Client) removeCall(seq uint64) *Call {
 }
 
 func (client *Client) terminateCalls(err error) {
-
 	client.sending.Lock()
 	defer client.sending.Unlock()
 	client.mu.Lock()
 	defer client.mu.Unlock()
 	client.shutdown = true
 	for _, call := range client.pending {
-
 		call.Error = err
 		call.done()
 	}
@@ -166,6 +131,7 @@ func (client *Client) send(call *Call) {
 		}
 	}
 }
+
 func (client *Client) receive() {
 	var err error
 	for err == nil {
@@ -174,10 +140,10 @@ func (client *Client) receive() {
 			break
 		}
 		call := client.removeCall(h.Seq)
-
 		switch {
-
 		case call == nil:
+			// it usually means that Write partially failed
+			// and call was already removed.
 			err = client.cc.ReadBody(nil)
 		case h.Error != "":
 			call.Error = fmt.Errorf(h.Error)
@@ -191,13 +157,16 @@ func (client *Client) receive() {
 			call.done()
 		}
 	}
+	// error occurs, so terminateCalls pending calls
 	client.terminateCalls(err)
 }
+
+// Go invokes the function asynchronously.
+// It returns the Call structure representing the invocation.
 func (client *Client) Go(serviceMethod string, args, reply interface{}, done chan *Call) *Call {
 	if done == nil {
 		done = make(chan *Call, 10)
-	}
-	if cap(done) == 0 {
+	} else if cap(done) == 0 {
 		log.Panic("rpc client: done channel is unbuffered")
 	}
 	call := &Call{
@@ -210,34 +179,53 @@ func (client *Client) Go(serviceMethod string, args, reply interface{}, done cha
 	return call
 }
 
-func (client *Client) Call(serviceMethod string, args, reply interface{}) error {
-	call := <-client.Go(serviceMethod, args, reply, make(chan *Call, 1)).Done
-	return call.Error
+// Call invokes the named function, waits for it to complete,
+// and returns its error status.
+func (client *Client) Call(ctx context.Context, serviceMethod string, args, reply interface{}) error {
+	call := client.Go(serviceMethod, args, reply, make(chan *Call, 1))
+	select {
+	case <-ctx.Done():
+		client.removeCall(call.Seq)
+		return errors.New("rpc client: call failed: " + ctx.Err().Error())
+	case call := <-call.Done:
+		return call.Error
+	}
 }
 
 func parseOptions(opts ...*Option) (*Option, error) {
-
+	// if opts is nil or pass nil as parameter
 	if len(opts) == 0 || opts[0] == nil {
-		return DefaultOption, nil
+		//return DefaultOption, nil
 	}
 	if len(opts) != 1 {
-
-		return nil, errors.New("number of option is more than 1")
+		return nil, errors.New("number of options is more than 1")
 	}
-
 	opt := opts[0]
-
-	opt.MagicNumber = DefaultOption.MagicNumber
+	//opt.MagicNumber = DefaultOption.MagicNumber
 	if opt.CodecType == "" {
-		opt.CodecType = DefaultOption.CodecType
+		//opt.CodecType = DefaultOption.CodecType
 	}
 	return opt, nil
 }
 
-func newClientCodec(cc codec.Codec, opt *Option) *Client {
+func NewClient(conn net.Conn, opt *Option) (client *Client, err error) {
+	f := codec.NewCodecFuncMap[opt.CodecType]
+	if f == nil {
+		err = fmt.Errorf("invalid codec type %s", opt.CodecType)
+		log.Println("rpc client: codec error:", err)
+		return
+	}
+	// send options with server
+	if err = json.NewEncoder(conn).Encode(opt); err != nil {
+		log.Println("rpc client: options error: ", err)
+		return
+	}
+	return newClientCodec(f(conn), opt), nil
+}
 
+func newClientCodec(cc codec.Codec, opt *Option) *Client {
 	client := &Client{
-		seq:     1,
+		seq:     1, // seq starts with 1, 0 means invalid call
 		cc:      cc,
 		opt:     opt,
 		pending: make(map[uint64]*Call),
@@ -245,12 +233,20 @@ func newClientCodec(cc codec.Codec, opt *Option) *Client {
 	go client.receive()
 	return client
 }
-func Dial(network, address string, opts ...*Option) (client *Client, err error) {
-	/*opt, err := parseOptions(opts...)
+
+type clientResult struct {
+	client *Client
+	err    error
+}
+
+type newClientFunc func(conn net.Conn, opt *Option) (client *Client, err error)
+
+func dialTimeout(f newClientFunc, network, address string, opts ...*Option) (client *Client, err error) {
+	opt, err := parseOptions(opts...)
 	if err != nil {
 		return nil, err
 	}
-	conn, err := net.Dial(network, address)
+	conn, err := net.DialTimeout(network, address, opt.ConnectTimeOut)
 	if err != nil {
 		return nil, err
 	}
@@ -260,36 +256,60 @@ func Dial(network, address string, opts ...*Option) (client *Client, err error) 
 			_ = conn.Close()
 		}
 	}()
-	return NewClient(conn, opt)*/
-
-	return dialTimeout(NewClient, network, address, opts...)
-
-}
-
-func NewClient(conn net.Conn, opt *Option) (*Client, error) {
-	f := codec.NewCodecFuncMap[opt.CodecType]
-	if f == nil {
-		err := fmt.Errorf("invalid codec type %s", opt.CodecType)
-		log.Println("rpc client: codec error:", err)
-		return nil, err
+	ch := make(chan clientResult)
+	go func() {
+		client, err := f(conn, opt)
+		ch <- clientResult{client: client, err: err}
+	}()
+	if opt.ConnectTimeOut == 0 {
+		result := <-ch
+		return result.client, result.err
 	}
-	// send options with server
-	if err := json.NewEncoder(conn).Encode(opt); err != nil {
-		log.Println("rpc client: options error: ", err)
-		_ = conn.Close()
-		return nil, err
-	}
-	return newClientCodec(f(conn), opt), nil
-}
-
-func (client *Client) Calls(ctx context.Context, serviceMethod string, args, reply interface{}) error {
-	call := client.Go(serviceMethod, args, reply, make(chan *Call, 1))
-
 	select {
-	case <-ctx.Done():
-		client.removeCall(client.seq)
-		return errors.New("rpc client: call failed: " + ctx.Err().Error())
-	case call := <-call.Done:
-		return call.Error
+	case <-time.After(opt.ConnectTimeOut):
+		return nil, fmt.Errorf("rpc client: connect timeout: expect within %s", opt.ConnectTimeOut)
+	case result := <-ch:
+		return result.client, result.err
 	}
+}
+
+// Dial connects to an RPC server at the specified network address
+func Dial(network, address string, opts ...*Option) (*Client, error) {
+	return dialTimeout(NewClient, network, address, opts...)
+}
+
+func NewHTTPClient(conn net.Conn, opt *Option) (*Client, error) {
+	_, _ = io.WriteString(conn, fmt.Sprintf("CONNECT %s HTTP/1.0\n\n", defaultRPCPath))
+
+	// Require successful HTTP response
+	// before switching to RPC protocol.
+	resp, err := http.ReadResponse(bufio.NewReader(conn), &http.Request{Method: "CONNECT"})
+	if err == nil && resp.Status == connected {
+		return NewClient(conn, opt)
+	}
+	if err == nil {
+		err = errors.New("unexpected HTTP response: " + resp.Status)
+	}
+	return nil, err
+}
+
+func DialHTTP(network, address string, opts ...*Option) (*Client, error) {
+	return dialTimeout(NewHTTPClient, network, address, opts...)
+}
+
+func XDial(rpcAddr string, opts ...*Option) (*Client, error) {
+
+	parts := strings.Split(rpcAddr, "@")
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("rpc client err: wrong format '%s', expect protocol@addr", rpcAddr)
+	}
+	protocol, addr := parts[0], parts[1]
+	switch protocol {
+	case "http":
+		return DialHTTP("tcp", addr, opts...)
+	default:
+		// tcp, unix or other transport protocol
+		return Dial(protocol, addr, opts...)
+	}
+
 }
